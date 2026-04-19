@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         POSTGRES_SECRET = credentials('jenkins-postgres-credentials')
+        PARQUET_PATH = '/parquet_data/facility_name_min_time_spent_per_visit_date'
     }
 
     stages {

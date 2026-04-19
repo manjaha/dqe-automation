@@ -3,8 +3,8 @@ Description: Data Quality checks for facility_name_min_time_spent_per_visit_date
 Requirement(s): TICKET-1234
 Author(s): Mariia Koval
 """
-
 import pytest
+import os
 
 
 @pytest.fixture(scope='module')
@@ -23,7 +23,10 @@ def source_data(db_connection):
 
 @pytest.fixture(scope='module')
 def target_data(parquet_reader):
-    target_path = r'C:\Work\Trainings\DQ Automation\dqe-automation\PyTest DQ Framework\parquet_data\facility_name_min_time_spent_per_visit_date'
+    target_path = os.environ.get(
+        'PARQUET_PATH',
+        r'C:\Work\Trainings\DQ Automation\dqe-automation\PyTest DQ Framework\parquet_data\facility_name_min_time_spent_per_visit_date'
+    )
     return parquet_reader.process(target_path, include_subfolders=True)
 
 
