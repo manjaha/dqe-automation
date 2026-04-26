@@ -20,10 +20,16 @@ class SeleniumWebDriverContextManager:
         options = webdriver.ChromeOptions()
         if self.headless:
             options.add_argument('--headless')
-        options.add_argument('--start-maximized')
+        
+        # Start with large initial size
+        options.add_argument('--window-size=1920,4000')
         options.add_argument('--disable-blink-features=AutomationControlled')
         
         self.driver = webdriver.Chrome(options=options)
+        
+        # Set window size to 4000px height
+        self.driver.set_window_size(1920, 4000)
+        
         return self.driver
     
     def __exit__(self, exc_type, exc_value, traceback):
@@ -142,6 +148,14 @@ def process_doughnut_chart(driver: WebDriver):
     try:
         time.sleep(2)
         
+        # Scroll to top with negative offset to show everything
+        driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(0.5)
+
+        # Zoom out slightly to fit everything
+        driver.execute_script("document.body.style.zoom='95%'")
+        time.sleep(0.5)
+        
         # Screenshot 0: Initial state
         driver.save_screenshot("screenshot0.png")
         extract_doughnut_data(driver, "doughnut0.csv")
@@ -156,11 +170,19 @@ def process_doughnut_chart(driver: WebDriver):
         
         for i, group in enumerate(legend_groups):
             try:
+                # Scroll to top before each action
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(0.3)
+                
                 # Move to element and click
                 from selenium.webdriver.common.action_chains import ActionChains
                 actions = ActionChains(driver)
                 actions.move_to_element(group).click().perform()
                 time.sleep(1)
+                
+                # Scroll back to top before screenshot
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(0.3)
                 
                 # Take screenshot
                 driver.save_screenshot(f"screenshot{screenshot_num}.png")
@@ -182,6 +204,10 @@ def process_doughnut_chart(driver: WebDriver):
                     time.sleep(0.3)
                 except:
                     pass
+            
+            # Scroll to top for final screenshot
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(0.5)
             
             driver.save_screenshot(f"screenshot{screenshot_num}.png")
             extract_doughnut_data(driver, f"doughnut{screenshot_num}.csv")
