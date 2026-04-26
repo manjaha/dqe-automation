@@ -42,68 +42,106 @@ def extract_table_to_csv(driver: WebDriver, output_file="table.csv"):
     print(f"📊 Extracting table to {output_file}...")
     
     try:
-        wait = WebDriverWait(driver, 10)
+        # Wait for table visible
+        WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CLASS_NAME, "table")))
         
-        # Locator 1: By CLASS_NAME
-        table_container = wait.until(
-            EC.presence_of_element_located((By.CLASS_NAME, "table"))
-        )
+        # LOCATOR 1: By.CLASS_NAME - Get table root
+        table = driver.find_element(By.CLASS_NAME, "table")
         
-        # Locator 2: By CSS_SELECTOR - get headers
-        header_elements = table_container.find_elements(By.CSS_SELECTOR, "g#header text.cell-text")
-        headers = [h.text.strip() for h in header_elements if h.text.strip()]
+        # LOCATOR 2: By.CLASS_NAME - Get all columns  
+        columns = table.find_elements(By.CLASS_NAME, "y-column")
         
-        # Locator 3: By CSS_SELECTOR - get all data cells
-        all_texts = table_container.find_elements(By.CSS_SELECTOR, "text.cell-text")
+        headers = []
+        all_data = []
         
-        # Extract data, skipping headers
-        all_data = [text.text.strip() for text in all_texts 
-                    if text.text.strip() and text.text.strip() not in headers]
-        
-        # Organize into rows
-        num_columns = len(headers)
-        rows = [all_data[i:i + num_columns] for i in range(0, len(all_data), num_columns)
-                if len(all_data[i:i + num_columns]) == num_columns]
-        
-        if headers and rows:
-            df = pd.DataFrame(rows, columns=headers)
-            df.to_csv(output_file, index=False)
-            print(f"✅ Table saved: {len(df)} rows, {len(headers)} columns")
-        else:
-            pd.DataFrame(columns=headers).to_csv(output_file, index=False)
+        for column in columns:
+            # LOCATOR 3: By.ID - Get column header
+            header = column.find_element(By.ID, "header").text.strip()
+            headers.append(header)
             
-    except TimeoutException:
-        print("❌ Timeout: Table not found")
+            # Get parent cell elements (which have position info)
+            parent_cells = column.find_elements(By.CSS_SELECTOR, "g.column-cell")
+            
+            # Extract cells with their Y positions
+            cells_with_position = []
+            for parent in parent_cells:
+                transform = parent.get_attribute("transform")
+                if "translate" in transform:
+                    # Extract Y coordinate
+                    y_str = transform.split(",")[1].replace(")", "").strip()
+                    y_pos = float(y_str)
+                    
+                    # LOCATOR 4: By.CLASS_NAME - Get text from cell
+                    try:
+                        text_elem = parent.find_element(By.CLASS_NAME, "cell-text")
+                        text = text_elem.text.strip()
+                        
+                        # Filter out header
+                        if text and text != header:
+                            cells_with_position.append((y_pos, text))
+                    except:
+                        pass
+            
+            # Sort by Y position (visual order)
+            cells_with_position.sort(key=lambda x: x[0])
+            
+            # Extract just the text values
+            column_data = [text for y, text in cells_with_position]
+            all_data.append(column_data)
+        
+        print(f"   Headers: {headers}")
+        print(f"   Rows extracted: {len(all_data[0])}")
+        
+        # Transpose columns to rows
+        num_rows = len(all_data[0])
+        rows = [[all_data[col][i] for col in range(len(all_data))] 
+                for i in range(num_rows)]
+        
+        df = pd.DataFrame(rows, columns=headers)
+        df.to_csv(output_file, index=False)
+        print(f"✅ Table saved: {len(df)} rows")
+            
     except Exception as e:
-        print(f"❌ Error extracting table: {e}")
-
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 def extract_doughnut_data(driver: WebDriver, output_file):
     """
     Extract doughnut chart data from Plotly pie chart
     """
     try:
-        slices = driver.find_elements(By.CSS_SELECTOR, "g.slice")
+        # Wait for chart layer
+        wait = WebDriverWait(driver, 10)
+        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "pielayer")))
+        
+        # Get chart root
+        doughnut = driver.find_element(By.CLASS_NAME, "pielayer")
+        
+        # Get slice labels (data-notex='1' = real labels only)
+        slice_labels = doughnut.find_elements(By.CSS_SELECTOR, "text.slicetext[data-notex='1']")
         
         data = []
-        for slice_elem in slices:
+        for label in slice_labels:
             try:
-                text_elem = slice_elem.find_element(By.CSS_SELECTOR, "text.slicetext")
-                text_content = text_elem.get_attribute("data-unformatted")
+                # Get lines in each label: tspans[0] = category, tspans[1] = value
+                tspans = label.find_elements(By.TAG_NAME, "tspan")
                 
-                if text_content:
-                    parts = text_content.replace("<br>", "|").split("|")
-                    if len(parts) >= 2:
-                        data.append([parts[0].strip(), parts[1].strip()])
+                if len(tspans) >= 2:
+                    category = tspans[0].text.strip()
+                    value = tspans[1].text.strip()
+                    data.append([category, value])
             except:
                 continue
         
-        df = pd.DataFrame(data, columns=["Facility Type", "Min Average Time Spent"]) if data else pd.DataFrame(columns=["Facility Type", "Min Average Time Spent"])
-        df.to_csv(output_file, index=False)
-        
         if data:
+            df = pd.DataFrame(data, columns=["Facility Type", "Min Average Time Spent"])
+            df.to_csv(output_file, index=False)
             print(f"✅ Chart data saved to {output_file} ({len(data)} entries)")
         else:
+            # No data (all slices hidden)
+            df = pd.DataFrame(columns=["Facility Type", "Min Average Time Spent"])
+            df.to_csv(output_file, index=False)
             print(f"⚠️ No chart data found for {output_file}")
         
     except Exception as e:
