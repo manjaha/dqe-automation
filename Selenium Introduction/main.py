@@ -22,7 +22,6 @@ class SeleniumWebDriverContextManager:
             options.add_argument('--headless')
         
         options.add_argument('--window-size=1920,1080')
-        options.add_argument('--disable-blink-features=AutomationControlled')
         
         self.driver = webdriver.Chrome(options=options)
         self.driver.set_window_size(1920, 1080)
@@ -168,7 +167,7 @@ if __name__ == "__main__":
     
     if not report_path.exists():
         print(f"❌ Report not found at: {report_path}")
-        print("Please run: podman cp jenkins:/generated_report/report.html .")
+        print("💡 Copy report.html to this directory first")
         exit(1)
     
     print(f"📄 Opening report: {report_path.as_uri()}\n")
