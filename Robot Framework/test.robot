@@ -15,7 +15,6 @@ Compare HTML Table With Parquet Data
     
     # Step 1: Open HTML report
     Open Browser    file:///${REPORT_FILE}    chrome
-    Maximize Browser Window
     Sleep    2s    # Wait for page to load
     
     # Step 2: Locate the HTML table
