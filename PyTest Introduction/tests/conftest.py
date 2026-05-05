@@ -1,16 +1,23 @@
 import pytest
 import pandas as pd
+from pathlib import Path
 
 # Fixture to read the CSV file
 @pytest.fixture(scope="session")
-def csv_content(path_to_file="../src/data/data.csv"):
+def csv_content():
     """
-    Reads the CSV file located at `path_to_file` and returns a pandas DataFrame.
+    Reads the CSV file and returns a pandas DataFrame.
     The fixture is session-scoped so the file is read only once.
     """
-    df = pd.read_csv(path_to_file)
+    # Get the path relative to the conftest.py location
+    tests_dir = Path(__file__).parent  # tests/
+    csv_path = tests_dir.parent / "src" / "data" / "data.csv"  # PyTest Introduction/src/data/data.csv
+    
+    if not csv_path.exists():
+        raise FileNotFoundError(f"CSV file not found at: {csv_path}")
+    
+    df = pd.read_csv(csv_path)
     return df
-
 
 # Fixture to validate the schema of the file
 @pytest.fixture(scope="session")
@@ -18,7 +25,6 @@ def validate_schema(csv_content):
     """
     Returns a helper function that compares the actual column names of the
     DataFrame against an expected schema list.
-
     Usage inside a test:
         def test_something(validate_schema):
             validate_schema(["id", "name", "age", "email", "is_active"])
@@ -31,7 +37,6 @@ def validate_schema(csv_content):
             f"  Actual columns   : {actual_schema}"
         )
     return _validate
-
 
 # Pytest hook to mark unmarked tests with a custom mark
 def pytest_collection_modifyitems(items):
